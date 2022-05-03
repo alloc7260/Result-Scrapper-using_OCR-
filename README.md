@@ -7,7 +7,7 @@ Implemented using Python.
 
 It uses Text Captcha Human Verification to get the result.
 
-Here i cracked the verification process with OCR(Optical-Character-Reeder) module.
+Here i cracked the verification process with OCR(Optical Character Recognition) module.
 
 By using selenium and pytesseract ocr module we can scrap any Text Captcha Human Verification.
 
