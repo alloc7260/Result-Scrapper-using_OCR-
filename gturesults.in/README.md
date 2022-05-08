@@ -1,4 +1,4 @@
-Note :
+# Note :
 
 To run this in your system 
 1> you have to install tesseract-ocr in your system
