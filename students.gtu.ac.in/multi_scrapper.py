@@ -4,23 +4,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from PIL import Image, ImageCms, ImageFilter
-import numpy as np
 import pytesseract
 import cv2
-import time
-
-# initiate webdriver and configure options
-co = webdriver.ChromeOptions()
-co.headless = True # for headless window (not visible in desktop)
-co.add_argument("--incognito") # for incognito mode
-
-# initiate chromedriver service by defining path (Choose chromedriver according to your chrome version)
-ser = Service("G:\\My Drive\\projects\\captcha_solver\\chromedriver.exe")
-driver = webdriver.Chrome(service=ser,options=co) # start webdriver
-
-# define url and filename for download captcha_temp
-URL = "https://www.students.gtu.ac.in/"
-path="cap.jpg"
 
 ## Helper Functions
 
@@ -31,7 +16,7 @@ def step1():
 	# save captcha
 	imdata = driver.find_element(By.ID,"imgCaptcha")
 	with open(path, 'wb') as file:
-	    file.write(imdata.screenshot_as_png)
+		file.write(imdata.screenshot_as_png)
 
 def step2():
 	# convert to inverted mask and save img_temp
@@ -49,10 +34,10 @@ def step2():
 	datas = img.getdata()
 	newData = []
 	for item in datas:
-	    if item[0] == 0 and item[1] == 0 and item[2] == 0:
-	        newData.append((255, 255, 255, 0))
-	    else:
-	        newData.append(item)
+		if item[0] == 0 and item[1] == 0 and item[2] == 0:
+			newData.append((255, 255, 255, 0))
+		else:
+			newData.append(item)
 	img.putdata(newData)
 
 	# paste mask on img and save new_temp_img
@@ -61,7 +46,7 @@ def step2():
 	background.paste(img,mask=img)
 	background.save("new.png","PNG")
 
-def step3(im):
+def step3(im): #  solve captcha
 	im = Image.open(im) # open last saved img
 	im = im.crop((5,5,115,35)) # crop it
 	# conver image to extractable form elements (deffer captcha styles)
@@ -81,28 +66,86 @@ def step3(im):
 		l[0]=step3("new.png")
 	return l[0] # return final result (maybe right or wrong)
 
-def step4(enroll,fname):
+def step4(enroll,fname,ans): # print webpage
 	# site automation 
 	enr = driver.find_element(By.ID,"txtEnrollNo") # get enrollment no. text box
 	captex = driver.find_element(By.ID,"CodeNumberTextBox") # get captcha text box
 	enr.send_keys(enroll) # send (type) given enrollment number to text box
 	captex.send_keys(ans) # send (type) extracted captcha text to text box
 	captex.send_keys(Keys.RETURN) # return (ENTER)
-	# resize the page for full view
+	
+	ere = driver.find_element(By.ID,"lblMSG").text
+	if ere == "ERROR: Incorrect captcha code, try again." : 
+		return "err"
+	if ere == "Your request count is reached to maximum limit, Please try again later." : 
+		return "reqover"
+	
+	# resize window for full view screenshot
 	S = lambda X: driver.execute_script('return document.body.parentNode.scroll'+X)
-	driver.set_window_size(S('Width'),S('Height'))                                                                                                              
+	driver.set_window_size(S('Width'),S('Height'))
 	driver.find_element(By.TAG_NAME,"body").screenshot(fname) # take a screenshot and save it to given filename
 
-# main driver programm
-# just a loop through different enrollment numbers
-# you can provide a list of specific numbers too like l=[13,54,66,46]
-for i in range(31,33+1): # 31 to 33 (for demo purpose only 3 enrollments taken)
-	enroll = "1902801110{}".format(i)
-	fname = "./outputs/1902801110{}.png".format(i)
-	step1()
-	step2()
-	ans=step3("new.png")
-	step4(enroll,fname)
+def loop():
+	# just a loop through different enrollment numbers
+	global counter
+	mynewlist = []
+	for i in mylist :
+		enroll = "{}".format(i)
+		fname = "./outputs/{}.png".format(i)
+		step1()
+		step2()
+		ans=step3("new.png")
+		nr=step4(enroll,fname,ans)
+		if nr == "err" :
+			mynewlist.append(enroll)
+		elif nr == "reqover" :
+			print("Change the SERVER!")
+			break
+		else :
+			counter += 1
+			print(f"{counter}/{tc} {int(counter*100/tc)}%")
+	return mynewlist
 
-driver.close() # close the window
-driver.quit() # stop the driver
+# initiate webdriver and configure options
+co = webdriver.ChromeOptions()
+# co.headless = True (another option)
+co.add_argument('--headless') # for headless window (not visible in desktop)
+co.add_argument("--incognito") # for incognito mode
+
+# initiate chromedriver service by defining path (Choose chromedriver according to your chrome version)
+ser = Service("chromedriver.exe") # 'chromedriver.exe' must be in same directory otherwise give absolute path
+driver = webdriver.Chrome(service=ser,options=co) # start webdriver
+
+# define url and filename for download captcha_temp
+URL = "https://www.students.gtu.ac.in/"
+path="cap.jpg"
+
+# take enrollment no. input from excel file
+# import pandas as pd
+# df = pd.read_excel('g.xlsx')
+# mylist = df['Enroll No.'].tolist()
+#------------------- OR --------------------
+# we can define our own list here
+#mylist = [190280111031]
+#------------------- OR --------------------
+# we can define our range here
+mylist = range(190280111001,190280111010+1)
+
+counter = 0
+tc = len(mylist)
+
+while 1:
+	mynewlist=loop()
+	if len(mynewlist) != 0:
+		mylist = mynewlist
+	else:
+		break
+
+# closing webinstance
+driver.quit()
+
+# removing unwanted files 
+import os
+os.remove("cap.jpg")
+os.remove("new.png")
+os.remove("old.png")
